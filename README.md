@@ -63,7 +63,6 @@ clean, known state.
 # ==============================================================================
 # Immutable configuration contract. Direct parameter binding — zero abstraction layers.
 # Ensure your PostgreSQL instance has the corresponding role and database initialized.
-# See project documentation (README.md) for prerequisite setup scripts.
 # ==============================================================================
 
 engine.url=jdbc:postgresql://localhost:5432/axiom_demo?prepareThreshold=0
