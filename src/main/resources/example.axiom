@@ -1,0 +1,47 @@
+{
+    required [order_id, customer_info, items]
+
+    properties {
+        order_id: { type: string, minLength: 5 }, // Enforced minimum
+
+        customer_info: {
+            required: [email, region],
+            properties: {
+                email: { type: string, pattern: "^.+@.+\\..+$" },
+                region: { enum: ["EMEA", "APAC", "AMER"] },
+                tier: { type: string }
+            }
+        },
+
+        items: {
+            record: {
+                required: [product_id, gsm, measurements],
+                properties: {
+                    product_id: { type: string, minLength: 3 }, // Enforced minimum
+
+                    gsm: { type: double, min: 320.0 },
+
+                    measurements: {
+                        required: [shoulder_drop_cm, sleeve],
+                        properties: {
+
+                        shoulder_drop_cm: {
+                            type: double,
+                            min: 5.5,
+                            max: 25.0, // Added upper bound
+                            description: "The physical shoulder drop limit for our current manufacturing machinery."                        }
+
+                            sleeve: {
+                                required: [length_type],
+                                properties: {
+                                    // Using enum restricts input to a specific, hard-coded set
+                                    length_type: { enum: ["SHORT", "REGULAR", "LONG", "EXTRA_LONG"] }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

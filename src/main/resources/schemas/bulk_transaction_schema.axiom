@@ -1,0 +1,18 @@
+{
+  strict: true
+  required: [transactions]
+  properties: {
+    transactions: {
+      minItems: 1,
+      record: {
+        required: [account_id, amount, direction, reference_note]
+        properties: {
+          account_id: { type: string },
+          amount: { type: double, min: 0.0001 },
+          direction: { type: string, enum: [CREDIT, DEBIT] },
+          reference_note: { type: string }
+        }
+      }
+    }
+  }
+}

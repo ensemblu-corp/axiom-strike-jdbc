@@ -1,0 +1,15 @@
+{
+  strict: true,
+  required: [status, currency]
+  properties: {
+    status: {
+      type: string,
+      enum: [ACTIVE, SUSPENDED, CLOSED]
+    },
+    currency: {
+      type: string,
+      minLength: 3,
+      maxLength: 3
+    }
+  }
+}

@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.ensemblu</groupId>
+    <artifactId>axiom-strike-jdbc</artifactId>
+    <version>1.0.0</version>
+
+    <licenses>
+        <license>
+            <name>Limited Commercial License</name>
+            <url>https://raw.githubusercontent.com/[YOUR_GITHUB_USERNAME]/[YOUR_REPO_NAME]/main/LICENSE</url>
+            <distribution>repo</distribution>
+            <comments>
+                Free for evaluation, testing, and non-commercial development.
+                Commercial or production use requires a paid annual contract.
+            </comments>
+        </license>
+    </licenses>
+
+    <name>Axiom Strike: JDBC Arsenal</name>
+    <description>
+        The sovereign execution bridge for the Axiom ecosystem.
+        Implements the Relational-Siege-Protocol to provide framework-free,
+        high-performance database provisioning and automated connection lifecycle management for Strike operations.
+    </description>
+
+    <properties>
+        <java.version>26</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- Source: https://mvnrepository.com/artifact/org.apache.maven.plugins/maven-compiler-plugin -->
+        <maven-compiler.version>3.15.0</maven-compiler.version>
+        <!-- Source: https://mvnrepository.com/artifact/org.apache.maven.plugins/maven-jar-plugin -->
+        <maven-jar.version>3.5.0</maven-jar.version>
+        <!-- Source: https://mvnrepository.com/artifact/org.apache.maven.plugins/maven-surefire-plugin -->
+        <maven-surefire.version>3.5.6</maven-surefire.version>
+        <!-- Source: https://mvnrepository.com/artifact/org.codehaus.mojo/exec-maven-plugin -->
+        <maven-exec.version>3.6.3</maven-exec.version>
+        <!-- Source: https://mvnrepository.com/artifact/org.apache.maven.plugins/maven-shade-plugin -->
+        <maven-shade.version>3.6.2</maven-shade.version>
+        <!-- Source: https://mvnrepository.com/artifact/org.apache.maven.plugins/maven-install-plugin -->
+        <maven-install.version>3.1.4</maven-install.version>
+        <!-- Source: https://mvnrepository.com/artifact/org.apache.maven.plugins/maven-clean-plugin -->
+        <maven-clean.version>3.5.0</maven-clean.version>
+        <!-- Source: https://mvnrepository.com/artifact/com.zaxxer/HikariCP -->
+        <hikaricp.version>7.1.0</hikaricp.version>
+        <!-- Source: https://mvnrepository.com/artifact/org.slf4j/slf4j-simple -->
+        <slf4j-simple.version>2.0.18</slf4j-simple.version>
+        <!-- Source: https://mvnrepository.com/artifact/org.postgresql/postgresql -->
+        <postgresql-jdbc-driver.version>42.7.13</postgresql-jdbc-driver.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.ensemblu</groupId>
+            <artifactId>axiom-warp-jdbc</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.ensemblu</groupId>
+            <artifactId>axiom-language</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <version>${hikaricp.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j-simple.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${postgresql-jdbc-driver.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>${project.basedir}</directory>
+                <includes>
+                    <include>LICENSE.md</include>
+                </includes>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven-compiler.version}</version>
+                <configuration>
+                    <release>${java.version}</release>
+                    <compilerArgs>
+                        <arg>--enable-preview</arg>
+                        <arg>-parameters</arg>
+                        <arg>-Xlint:all</arg>
+                        <arg>-Xlint:deprecation</arg>
+                        <arg>-Xlint:-unchecked</arg>
+                        <arg>-Xlint:-rawtypes</arg>
+                        <arg>-Xlint:-preview</arg>
+                        <arg>-Xlint:-serial</arg>
+                        <arg>-Xlint:-classfile</arg>
+                        <arg>-proc:none</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${maven-surefire.version}</version>
+                <configuration>
+                    <argLine>--enable-preview</argLine>
+                    <failIfNoTests>false</failIfNoTests>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>${maven-exec.version}</version>
+                <executions>
+                    <execution>
+                        <id>start-engine</id>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <mainClass>com.ensemblu.axiom.jdbc.strike.BootstrapEngine</mainClass>
+                    <arguments>
+                        <argument>--enable-preview</argument>
+                        <argument>-Dfile.encoding=UTF-8</argument>
+                        <argument>-Dsun.stdout.encoding=UTF-8</argument>
+                        <argument>-Dsun.stderr.encoding=UTF-8</argument>
+                    </arguments>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>${maven-shade.version}</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <finalName>axiom-arsenal</finalName>
+							<createDependencyReducedPom>false</createDependencyReducedPom>
+							<minimizeJar>true</minimizeJar>
+							<transformers>
+								<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+									<mainClass>com.ensemblu.axiom.jdbc.strike.BootstrapEngine</mainClass>
+								</transformer>
+								<transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+							</transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>module-info.class</exclude>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>com/zaxxer/hikari/hibernate/**</exclude>
+                                        <exclude>com/zaxxer/hikari/metrics/**</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>org.postgresql:postgresql</artifact>
+                                    <includes>
+                                        <include>**</include>
+                                    </includes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>${maven-jar.version}</version>
+                <configuration>
+                    <archive>
+                        <manifestEntries>
+                            <Implementation-Title>Axiom Strike JDBC Engine</Implementation-Title>
+                            <Implementation-Version>${project.version}</Implementation-Version>
+                            <Build-Jdk-Spec>${java.version}</Build-Jdk-Spec>
+                            <Axiom-Compliance-Level>Relational-Siege-Protocol</Axiom-Compliance-Level>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-install-plugin</artifactId>
+                <version>${maven-install.version}</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>${maven-clean.version}</version>
+            </plugin>
+        </plugins>
+    </build>
+</project>

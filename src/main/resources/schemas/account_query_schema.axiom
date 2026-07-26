@@ -1,0 +1,15 @@
+{
+    required: [status, limit]
+    properties: {
+        status: {
+            type: string,
+            enum: [ACTIVE, INACTIVE, SUSPENDED, PENDING]
+        },
+        limit: {
+            type: integer,
+            min: 1,
+            max: 1000,
+            description: "Maximum number of records to return per fetch query."
+        }
+    }
+}
