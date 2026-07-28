@@ -23,9 +23,6 @@ public final class BootstrapEngine {
     private static final int DEFAULT_PORT = 8089;
 
     static void main() {
-        Axiom.Io.log("🌊 [AXIOM STRIKE] Initializing Full System Verification...").run();
-        Axiom.Io.log("-----------------------------------------------------------").run();
-
         StrikeGateway.launchOnPort(DEFAULT_PORT);
     }
 }
