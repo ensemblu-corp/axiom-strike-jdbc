@@ -1,4 +1,4 @@
-# Axiom Strike: JDBC Arsenal
+# Axiom Strike: JDBC
 
 A demo showing how to interact with **Axiom** over JDBC — no Spring, no ORM,
 no reflection. It boots a plain `com.sun.net.httpserver.HttpServer`, wires a
