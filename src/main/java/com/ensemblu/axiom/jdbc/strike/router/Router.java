@@ -126,11 +126,19 @@ public final class Router implements HttpHandler {
             final Predicate<PersistentMap<String, Object>> matchMethod =//
                                     e -> e.targetKey("method").toStringVal()
                                             .equalsIgnoreCase(method.name());
+
             return entries//
                     .findFirst(matchPath.and(matchMethod))//
-                    .map(e ->//
-                            ((HandlerFunction)e.get("handler")).handle(data))//
-                    .getOrElse(Axiom.Check.failure(new RuntimeException("Route not found")));//
+                    .map(e -> {//
+                        try {//
+                            return ((HandlerFunction) e.get("handler")).handle(data);
+                        } catch (Exception systemEx) {//
+                            // Intercept unrecoverable system crashes and wrap them cleanly
+                            return Axiom.Check.<PersistentMap<String, Object>>failure(systemEx);
+                        }//
+                    })//
+                    .getOrElse(Axiom.Check.failure(new RuntimeException("Route not found")));
+        
         };
     }
 
