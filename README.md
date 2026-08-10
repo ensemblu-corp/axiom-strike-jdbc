@@ -1,61 +1,80 @@
-# Axiom Strike: JDBC
 
-A demo showing how to interact with **Axiom** over JDBC — no Spring, no ORM,
-no reflection. It boots a plain `com.sun.net.httpserver.HttpServer`, wires a
-few endpoints to `AxiomWarp`, and lets you hit them with `curl` to see reads,
-bulk writes, and parallel queries go through the JDBC engine.
+# ⚔️ Axiom Strike: JDBC
+
+![Version](https://img.shields.io/badge/version-2.0.0-blue)
+![Java](https://img.shields.io/badge/Java-26-orange)
+![Stack](https://img.shields.io/badge/stack-Axiom%20Warp%20JDBC-informational)
+![License](https://img.shields.io/badge/license-Limited%20Commercial-red)
+
+**Live demo of the Axiom JDBC stack — no Spring, no ORM, no reflection.**
+
+A plain `com.sun.net.httpserver.HttpServer` wires three endpoints to `AxiomWarp`. You hit them with `curl` and see parameterized reads, bulk inserts, and parallel queries run through the real engine.
+
+Every request body is validated with `SchemaGuard` against an `.axiom` schema. Every SQL call carries an explicit `AxiomProtocol` contract. On boot, `Seeder` rebuilds the demo schema and loads seed data via `warp.ingest()` (Hammer / CSV → batched JDBC).
 
 ---
 
 ## What it demonstrates
 
-| Endpoint | Axiom feature |
-|---|---|
-| `POST /strike/accounts/query` | A single parameterized read (`warp.read` + `.dynamic(...)`) |
-| `POST /strike/accounts/bulk-txn` | Batched inserts (`warp.write` + `.bulk(...)`) |
-| `POST /strike/system/parallel-metrics` | Concurrent reads fired together (`warp.parallel(...)`) |
+| Endpoint | Method | Axiom feature |
+|----------|--------|----------------|
+| `/strike/accounts/query` | `POST` | Single parameterized read — `warp.read` + `.dynamic(...)` |
+| `/strike/accounts/bulk-txn` | `POST` | Batched inserts — `warp.write` + `.bulk(...)` |
+| `/strike/system/parallel-metrics` | `POST` | Concurrent reads — `warp.parallel(...)` |
 
-Every request body is validated against a schema in `src/main/resources/schemas`
-before it reaches SQL (`SchemaGuard`), and every request maps its own
-`AxiomProtocol` contract by hand instead of relying on annotations or a driver
-doing type inference for you.
+Pipeline on every request:
 
-On boot, `Seeder` drops and recreates the whole demo schema (`accounts`,
-`ledger_transactions`, `account_limits`, `app_users`, `account_holders`,
-`audit_logs`, an audit trigger, and a summary view), then loads
-`src/main/resources/csv/initial_accounts.csv` as starting data via
-`warp.ingest()`, which streams the CSV straight into a batched JDBC insert
-(see `Hammer`) rather than any bulk-load tooling. So every run starts from a
-clean, known state.
+```text
+HTTP body (bytes)
+    → SchemaGuard.checkContent(bytes).basedOnSchemaInPath(...).withParser(JsonParser…)
+    → PersistentMap
+    → AxiomWarp strike / bulk / parallel
+    → PersistentMap / PersistentList
+    → JsonEmitter (response)
+```
+
+---
 
 ## Prerequisites
 
-- Java 26
-- Maven
-- A running PostgreSQL instance with a database matching
-  `src/main/resources/postgres-strike.properties`:
+- **Java 26** (preview features enabled)
+- **Maven**
+- **PostgreSQL** with a database and role matching `src/main/resources/postgres-strike.properties`
 
-  
+Default properties:
+
 ```properties
-# ==============================================================================
-# Axiom JDBC: Engine Engagement Perimeter
-# ==============================================================================
-# Immutable configuration contract. Direct parameter binding — zero abstraction layers.
-# Ensure your PostgreSQL instance has the corresponding role and database initialized.
-# ==============================================================================
-
 engine.url=jdbc:postgresql://localhost:5432/axiom_demo?prepareThreshold=0
 engine.user=axiom_commander
 engine.password=strike_hard
+engine.pool.min=4
+engine.pool.max=12
 ```
 
-  Create the role/database first (or edit the properties file to match
-  whatever you already have):
+Create the role and database once (or edit the properties file):
 
 ```sql
-  CREATE ROLE axiom_commander WITH LOGIN PASSWORD 'strike_hard';
-  CREATE DATABASE axiom_demo OWNER axiom_commander;
- ```
+CREATE ROLE axiom_commander WITH LOGIN PASSWORD 'strike_hard';
+CREATE DATABASE axiom_demo OWNER axiom_commander;
+```
+
+---
+
+## Dependencies (Maven)
+
+This demo is versioned **2.0.0** and depends on:
+
+| Artifact | Role |
+|----------|------|
+| `com.ensemblu:axiom-warp-jdbc:2.0.0` | Blocking JDBC warp engine |
+| `com.ensemblu:axiom-language:2.0.0` | `SchemaGuard` + schema handshake |
+| `com.zaxxer:HikariCP` | Connection pool |
+| `org.postgresql:postgresql` | JDBC driver |
+| `org.slf4j:slf4j-simple` | Logging |
+
+(Transitive: `axiom-spec`, `axiom-sovereign`, `axiom`.)
+
+---
 
 ## Running it
 
@@ -63,55 +82,202 @@ engine.password=strike_hard
 mvn compile exec:java
 ```
 
-This starts the gateway on **port 8089**, re-seeds the database, and logs
-`🚀 [AXIOM STRIKE] Gateway active on port 8089` once it's ready.
+Starts the gateway on **port 8089**, re-seeds the database, then logs:
 
-You can also build a standalone jar:
+```text
+🚀 [AXIOM STRIKE] Gateway active on port 8089
+```
+
+Standalone jar:
 
 ```bash
 mvn package
 java --enable-preview -jar target/axiom-arsenal.jar
 ```
 
+---
+
 ## Try it
 
 ```bash
-# Query accounts
+# 1. Query accounts (status + limit)
 curl -X POST -H "Content-Type: application/json" \
   -d '{"status": "ACTIVE", "limit": 1}' \
   http://localhost:8089/strike/accounts/query
 
-# Insert a batch of ledger transactions
+# 2. Bulk-insert ledger transactions
 curl -X POST -H "Content-Type: application/json" \
   -d '{"transactions": [{"account_id": "11111111-1111-1111-1111-111111111111", "amount": 125.50, "direction": "CREDIT", "reference_note": "Test Deposit"}]}' \
   http://localhost:8089/strike/accounts/bulk-txn
 
-# Run two reads in parallel
+# 3. Parallel metrics (two reads at once)
 curl -X POST -H "Content-Type: application/json" \
   -d '{"status": "ACTIVE", "currency": "ILS"}' \
   http://localhost:8089/strike/system/parallel-metrics
 ```
 
-## Project layout
+---
 
+## How the code actually works
+
+### Boot
+
+```java
+// BootstrapEngine
+StrikeGateway.launchOnPort(8089);
+
+// StrikeGateway
+final var warp = StrikeInfrastructure.initialize();
+Seeder.initializeLedgerData(warp);
+// bind HttpServer + Router routes
 ```
-src/main/java/com/ensemblu/axiom/jdbc/strike/
-├── BootstrapEngine.java        entry point
-├── gateway/StrikeGateway.java  wires infra + routes, starts the HTTP server
-├── router/Router.java          minimal routing table (no framework)
-├── infra/
-│   ├── StrikeInfrastructure.java  builds the HikariCP-backed AxiomWarp
-│   └── Seeder.java                drops/recreates schema, loads seed CSV
-├── adapter/AxiomDataSourceAdapter.java
-└── handler/
-    ├── AccountQueryExecutor.java
-    ├── BulkTransactionIngestor.java
-    └── ParallelAnalyticsEngine.java
+
+### Infrastructure (Hikari → AxiomWarp)
+
+```java
+final var config = Axiom.Config.file("postgres-strike.properties");
+
+return AxiomWarp.connect(config)
+        .withPoolProvider(map -> {
+            final var hikariConfig = new HikariConfig();
+            hikariConfig.setJdbcUrl(map.targetKey("engine.url").toStringVal());
+            hikariConfig.setUsername(map.targetKey("engine.user").toStringVal());
+            hikariConfig.setPassword(map.targetKey("engine.password").toStringVal());
+            hikariConfig.setMinimumIdle(map.targetKey("engine.pool.min").toIntVal());
+            hikariConfig.setMaximumPoolSize(map.targetKey("engine.pool.max").toIntVal());
+            hikariConfig.setAutoCommit(false);
+            return AxiomDataSourceAdapter.of(new HikariDataSource(hikariConfig));
+        })
+        .validateRules()
+        .map(AxiomWarp::new)
+        .getOrThrow();
+```
+
+### Account query (schema → dynamic strike)
+
+```java
+final var data = SchemaGuard
+        .checkContent(substance)   // substance = request body as byte[]
+        .basedOnSchemaInPath("schemas/account_query_schema")
+        .withParser(s -> JsonParser.take(s).openBuffer().ensureRootIsObject().parseObject())
+        .getOrThrow();
+
+return warp.read(() ->
+        warp.strike()
+                .dynamic("""
+                        SELECT account_id, balance, currency, status
+                        FROM accounts
+                        WHERE status = :java.status
+                        ORDER BY created_at DESC
+                        LIMIT :java.limit;""")
+                .withContract(deriveContractFromData(data))
+                .withData(data)
+                .map(l -> Axiom.Data.<String, Object>emptyMap()
+                        .put("accounts", l.map(JsonEmitter::emit)))
+                .getOrThrow()
+);
+```
+
+### Bulk transactions
+
+```java
+final var batchData = data.targetKey("transactions").toStringKeyMapListVal();
+
+return warp.write(() ->
+        warp.strike()
+                .bulk("""
+                        INSERT INTO ledger_transactions (account_id, amount, direction, reference_note)
+                        VALUES (:java.account_id::uuid, :java.amount::double precision, :java.direction, :java.reference_note)
+                        """)
+                .withContract(contract)
+                .withData(batchData)
+                .map(count -> Axiom.Data.<String, Object>emptyMap()
+                        .put("status", "BULK_SUCCESS")
+                        .put("inserted_rows", count))
+);
+```
+
+### Parallel metrics
+
+```java
+final var tasks = List.of(
+        StrikeInstruction.dynamic("SELECT COUNT(*) AS total_accounts FROM accounts WHERE status = :java.status")
+                .withContract(...)
+                .withData(...),
+        StrikeInstruction.dynamic("SELECT SUM(balance) AS total_liability FROM accounts WHERE currency = :java.currency")
+                .withContract(...)
+                .withData(...)
+);
+
+return Axiom.Data.<String, Object>emptyMap()
+        .put("parallel_metrics", warp.parallel(tasks).getOrThrow().map(JsonEmitter::emit));
 ```
 
 ---
 
+## Project layout
 
-## 📜 Legal
+```
+src/main/java/com/ensemblu/axiom/jdbc/strike/
+├── BootstrapEngine.java              // main entry
+├── gateway/StrikeGateway.java        // infra + routes + HttpServer
+├── router/Router.java                // minimal routing (no framework)
+├── infra/
+│   ├── StrikeInfrastructure.java     // HikariCP → AxiomWarp
+│   └── Seeder.java                   // drop/recreate schema + CSV seed
+├── adapter/AxiomDataSourceAdapter.java
+└── handler/
+    ├── AccountQueryExecutor.java     // /accounts/query
+    ├── BulkTransactionIngestor.java  // /accounts/bulk-txn
+    └── ParallelAnalyticsEngine.java  // /system/parallel-metrics
 
-This project is governed by the principles of immutable software architecture. See `LICENSE.md` for the specific terms of use.
+src/main/resources/
+├── postgres-strike.properties
+├── csv/initial_accounts.csv
+├── schemas/
+│   ├── account_query_schema.axiom
+│   ├── bulk_transaction_schema.axiom
+│   └── parallel_analytics_schema.axiom
+└── example.axiom
+```
+
+---
+
+## Seeding
+
+On every start, `Seeder`:
+
+1. Drops and recreates tables: `accounts`, `ledger_transactions`, `account_limits`, `app_users`, `account_holders`, `audit_logs`, plus an audit trigger and a summary view  
+2. Loads `csv/initial_accounts.csv` through `warp.ingest()` (Hammer streams rows into batched inserts)
+
+You always begin from a known, clean state.
+
+---
+
+## Design notes
+
+- **No Spring / no ORM** — JDK `HttpServer` + explicit Axiom APIs only  
+- **Byte-first** — request bodies stay as `byte[]` until `JsonParser` / `SchemaGuard`  
+- **Contracts are hand-written** — `AxiomProtocol` maps are built in code, not inferred  
+- **JSON out via `JsonEmitter`** — not `Dop.toJson` (removed in core 2.0.0)  
+- **Pool does not own transactions** — `autoCommit(false)`; Axiom scopes commit/rollback  
+
+---
+
+## Related modules
+
+| Module | Role in this demo |
+|--------|-------------------|
+| [`axiom-warp-jdbc`](https://github.com/ensemblu-corp/axiom-warp-jdbc) | `AxiomWarp`, strikes, ingest, parallel |
+| [`axiom-language`](https://github.com/ensemblu-corp/axiom-language) | `SchemaGuard` |
+| [`axiom-spec`](https://github.com/ensemblu-corp/axiom-spec) | `JsonParser`, `JsonEmitter`, `AxiomProtocol`, `StrikeInstruction` |
+| [`axiom`](https://github.com/ensemblu-corp/axiom) | `PersistentMap`, `Result`, `Dop`, `Axiom` entry point |
+
+---
+
+## Legal
+
+Limited Commercial License — free for evaluation, testing, and non-commercial development.  
+Commercial or production use requires a paid annual contract from Ensemblu Corp.
+
+See `LICENSE.md`. Contact: **contact@ensemblu.com**
