@@ -7,27 +7,6 @@ bulk writes, and parallel queries go through the JDBC engine.
 
 ---
 
-## 🏛️ Integration
-
-Summon the Specification engine into your project:
-
-**Maven**
-
-```xml 
-<dependency>    
-     <groupId>com.ensemblu</groupId>   
-     <artifactId>axiom-strike-jdbc</artifactId>   
-     <version>1.0.0</version>  
-</dependency>   
-```   
-**Gradle**
-
-```groovy
-implementation("com.ensemblu:axiom-strike-jdbc:1.0.0")   
-```
-
----
-
 ## What it demonstrates
 
 | Endpoint | Axiom feature |
