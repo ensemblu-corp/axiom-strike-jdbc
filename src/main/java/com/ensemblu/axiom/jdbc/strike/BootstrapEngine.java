@@ -1,6 +1,5 @@
 package com.ensemblu.axiom.jdbc.strike;
 
-import com.ensemblu.axiom.api.Axiom;
 import com.ensemblu.axiom.jdbc.strike.gateway.StrikeGateway;
 
 /**

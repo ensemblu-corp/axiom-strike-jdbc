@@ -6,6 +6,7 @@ import com.ensemblu.axiom.core.data_structure.map.PersistentMap;
 import com.ensemblu.axiom.core.foundation.Dop;
 import com.ensemblu.axiom.core.validation.If;
 import com.ensemblu.axiom.core.validation.Result;
+import com.ensemblu.axiom.spec.parser.JsonEmitter;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
@@ -47,7 +48,7 @@ public final class Router implements HttpHandler {
     public interface HandlerFunction {
         // Input: The raw request (or byte stream)
         // Output: Your Result domain (Success/Failure)
-        Result<PersistentMap<String, Object>> handle(String rawContent);
+        Result<PersistentMap<String, Object>> handle(byte[] rawContent);
     }
 
     private Router on(MethodType method, String path, HandlerFunction handler) {
@@ -103,7 +104,7 @@ public final class Router implements HttpHandler {
     }
 
     public interface OnData{
-        Result<PersistentMap<String, Object>> onData(String rawContent);
+        Result<PersistentMap<String, Object>> onData(byte[] rawContent);
     }
 
     public WithPath build() {
@@ -126,19 +127,11 @@ public final class Router implements HttpHandler {
             final Predicate<PersistentMap<String, Object>> matchMethod =//
                                     e -> e.targetKey("method").toStringVal()
                                             .equalsIgnoreCase(method.name());
-
             return entries//
                     .findFirst(matchPath.and(matchMethod))//
-                    .map(e -> {//
-                        try {//
-                            return ((HandlerFunction) e.get("handler")).handle(data);
-                        } catch (Exception systemEx) {//
-                            // Intercept unrecoverable system crashes and wrap them cleanly
-                            return Axiom.Check.<PersistentMap<String, Object>>failure(systemEx);
-                        }//
-                    })//
-                    .getOrElse(Axiom.Check.failure(new RuntimeException("Route not found")));
-        
+                    .map(e ->//
+                            ((HandlerFunction)e.get("handler")).handle(data))//
+                    .getOrElse(Axiom.Check.failure(new RuntimeException("Route not found")));//
         };
     }
 
@@ -149,7 +142,7 @@ public final class Router implements HttpHandler {
             return;
 
         // 1. Extract the raw input
-        final var rawContent = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        final var rawContent = exchange.getRequestBody().readAllBytes();
 
         // 2. Dispatch via the API (your Router)
         final var result = this.build()//
@@ -159,7 +152,7 @@ public final class Router implements HttpHandler {
 
         // 3. Translate Result to Response
         if (result.isSuccess()) {
-            sendResponse(exchange, 200, Dop.toJson(result.getOrThrow()));
+            sendResponse(exchange, 200, JsonEmitter.emit(result.getOrThrow()));
         } else {
             sendResponse(exchange, 404, "Route not found or logic failed");
         }

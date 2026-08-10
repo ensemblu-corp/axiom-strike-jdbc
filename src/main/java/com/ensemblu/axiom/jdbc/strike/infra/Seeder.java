@@ -1,6 +1,5 @@
 package com.ensemblu.axiom.jdbc.strike.infra;
 
-
 import com.ensemblu.axiom.api.Axiom;
 import com.ensemblu.axiom.core.foundation.Nothing;
 import com.ensemblu.axiom.jdbc.api.AxiomWarp;

@@ -46,7 +46,7 @@ public interface BulkTransactionIngestor {
         };
     }
 
-    private static Function<String, PersistentMap<String, Object>> toJson() {
+    private static Function<byte[], PersistentMap<String, Object>> toJson() {
         return s -> JsonParser.take(s).openBuffer().ensureRootIsObject().parseObject();
     }
 }

@@ -2,12 +2,12 @@ package com.ensemblu.axiom.jdbc.strike.handler;
 
 import com.ensemblu.axiom.api.Axiom;
 import com.ensemblu.axiom.core.data_structure.map.PersistentMap;
-import com.ensemblu.axiom.core.foundation.Dop;
 import com.ensemblu.axiom.jdbc.api.AxiomWarp;
 import com.ensemblu.axiom.jdbc.strike.router.Router;
 import com.ensemblu.axiom.schema.SchemaGuard;
 import com.ensemblu.axiom.spec.database.contract.AxiomProtocol;
 import com.ensemblu.axiom.spec.database.contract.StrikeInstruction;
+import com.ensemblu.axiom.spec.parser.JsonEmitter;
 import com.ensemblu.axiom.spec.parser.JsonParser;
 
 import java.util.List;
@@ -53,12 +53,12 @@ public interface ParallelAnalyticsEngine {
                 return Axiom//
                         .Data//
                         .<String, Object>emptyMap()//
-                        .put("parallel_metrics", warp.parallel(tasks).getOrThrow().map(Dop::toJson));
+                        .put("parallel_metrics", warp.parallel(tasks).getOrThrow().map(JsonEmitter::emit));
             });
         };
     }
 
-    private static Function<String, PersistentMap<String, Object>> toJson() {
+    private static Function<byte[], PersistentMap<String, Object>> toJson() {
         return s -> JsonParser.take(s).openBuffer().ensureRootIsObject().parseObject();
     }
 }
